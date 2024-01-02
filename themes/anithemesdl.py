@@ -1,11 +1,29 @@
 import argparse
 import csv
 import json
+from dataclasses import dataclass
+from enum import StrEnum, auto
+from typing import Literal
 
 import requests
 
 
-def main():
+class Season(StrEnum):
+    ALL = auto()
+    WINTER = auto()
+    SPRING = auto()
+    SUMMER = auto()
+    FALL = auto()
+
+
+@dataclass
+class Args:
+    year: int
+    season: Season
+    output: Literal["csv", "json"]
+
+
+def make_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "year",
@@ -15,8 +33,8 @@ def main():
         "--season",
         "-s",
         help="The season from which to get OPEDs.",
-        choices=["all", "winter", "spring", "summer", "fall"],
-        default="all",
+        choices=Season,
+        default=Season.ALL,
     )
     parser.add_argument(
         "--output",
@@ -25,19 +43,23 @@ def main():
         choices=["csv", "json"],
         default="csv",
     )
-    args = parser.parse_args()
+    return parser
+
+
+def main():
+    args = make_parser().parse_args(namespace=Args)
 
     results = []
     for page in range(1, 10):  # Could use a while loop here, but range is safer
         params = {
             "filter[year]": args.year,
-            "filter[season]": None if args.season == "all" else args.season,
+            "filter[season]": None if args.season == Season.ALL else args.season,
             "filter[site]": "AniList",
             "include": "animethemes.animethemeentries.videos,animethemes.song,resources",
             "page[size]": 100,
             "page[number]": page,
         }
-        r = requests.get("https://api.animethemes.moe/anime", params=params)
+        r = requests.get("https://api.animethemes.moe/anime", params=params, timeout=60)
         result = r.json()["anime"]
         if not result:
             break
