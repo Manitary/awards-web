@@ -89,7 +89,7 @@ class AnimeTheme(TypedDict):
     created_at: str
     updated_at: str
     deleted_at: str | None
-    song: Song
+    song: Song | None
     animethemeentries: list[AnimeThemeEntry]
 
 
@@ -105,6 +105,17 @@ class Anime(TypedDict):
     deleted_at: str | None
     animethemes: list[AnimeTheme]
     resources: list[Resource]
+
+
+class TableEntry(TypedDict):
+    name: str
+    songname: str | None
+    anilist: int | None
+    type: str
+    # season: Literal['Winter', 'Spring', 'Summer', 'Fall']
+    # version: int
+    # episodes: str
+    link: str
 
 
 def make_parser() -> argparse.ArgumentParser:
@@ -155,49 +166,39 @@ def fetch_themes(
 def main():
     args = make_parser().parse_args(namespace=Args)
     results = fetch_themes(args.year, args.season)
-
-    anime_list: list[dict] = []
+    anime_list: list[TableEntry] = []
     for anime in results:
         name, season = anime["name"], anime["season"]
         anilist = anime["resources"][0]["external_id"]
         for themes in anime["animethemes"]:
             oped = themes["type"]
             sequence = themes["sequence"]
-            song_name = themes["song"].get("title") if themes["song"] else None
+            song = themes["song"]
+            song_name = song.get("title") if song else None
             for entries in themes["animethemeentries"]:
                 version, episodes = entries["version"], entries["episodes"]
                 for videos in entries["videos"]:
                     link = videos["link"]
                     if "NCBD1080" not in link:
-                        ver = ""
-                        if str(sequence) != "None":
-                            ver = str(sequence)
+                        ver = str(sequence) if sequence is not None else ""
                         anime_list.append(
                             {
                                 "name": name,
                                 "songname": song_name,
                                 "anilist": anilist,
                                 "type": str(oped) + ver,
-                                # "season": season,
-                                # "version": ,
-                                # "episodes": episodes,
                                 "link": link,
                             }
                         )
+
+    file_name = f"animethemes_{args.year}_{args.season}"
     if args.output == "csv":
-        with open(
-            f"animethemes_{args.year}_{args.season}.csv",
-            "w",
-            encoding="utf-8",
-            newline="",
-        ) as output_file:
+        with open(f"{file_name}.csv", "w", encoding="utf-8", newline="") as output_file:
             dict_writer = csv.DictWriter(output_file, anime_list[0].keys())
             dict_writer.writeheader()
             dict_writer.writerows(anime_list)
     elif args.output == "json":
-        with open(
-            f"animethemes_{args.year}_{args.season}.json", "w", encoding="utf-8"
-        ) as output_file:
+        with open(f"{file_name}.json", "w", encoding="utf-8") as output_file:
             json.dump(anime_list, output_file, indent=4, ensure_ascii=False)
 
 
