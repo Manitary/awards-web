@@ -107,17 +107,6 @@ class Anime(TypedDict):
     resources: list[Resource]
 
 
-class TableEntry(TypedDict):
-    name: str
-    songname: str | None
-    anilist: int | None
-    type: str
-    # season: Literal['Winter', 'Spring', 'Summer', 'Fall']
-    # version: int
-    # episodes: str
-    link: str
-
-
 def make_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -163,42 +152,37 @@ def fetch_themes(
     return results
 
 
-def main():
+def main() -> None:
     args = make_parser().parse_args(namespace=Args)
     results = fetch_themes(args.year, args.season)
-    anime_list: list[TableEntry] = []
-    for anime in results:
-        name, season = anime["name"], anime["season"]
-        anilist = anime["resources"][0]["external_id"]
-        for themes in anime["animethemes"]:
-            oped = themes["type"]
-            sequence = themes["sequence"]
-            song = themes["song"]
-            song_name = song.get("title") if song else None
-            for entries in themes["animethemeentries"]:
-                version, episodes = entries["version"], entries["episodes"]
-                for videos in entries["videos"]:
-                    link = videos["link"]
-                    if "NCBD1080" not in link:
-                        ver = str(sequence) if sequence is not None else ""
-                        anime_list.append(
-                            {
-                                "name": name,
-                                "songname": song_name,
-                                "anilist": anilist,
-                                "type": str(oped) + ver,
-                                "link": link,
-                            }
-                        )
 
-    file_name = f"animethemes_{args.year}_{args.season}"
-    if args.output == "csv":
-        with open(f"{file_name}.csv", "w", encoding="utf-8", newline="") as output_file:
+    anime_list = [
+        {
+            "name": anime["name"],
+            "songname": themes["song"].get("title") if themes["song"] else None,
+            "anilist": anime["resources"][0]["external_id"],
+            "type": str(themes["type"])
+            + (str(themes["sequence"]) if themes["sequence"] is not None else ""),
+            "link": videos["link"],
+        }
+        for anime in results
+        for themes in anime["animethemes"]
+        for entries in themes["animethemeentries"]
+        for videos in entries["videos"]
+        if "NCBD1080" not in videos["link"]
+    ]
+
+    with open(
+        f"animethemes_{args.year}_{args.season}.{args.output}",
+        "w",
+        encoding="utf-8",
+        newline="",
+    ) as output_file:
+        if args.output == "csv":
             dict_writer = csv.DictWriter(output_file, anime_list[0].keys())
             dict_writer.writeheader()
             dict_writer.writerows(anime_list)
-    elif args.output == "json":
-        with open(f"{file_name}.json", "w", encoding="utf-8") as output_file:
+        elif args.output == "json":
             json.dump(anime_list, output_file, indent=4, ensure_ascii=False)
 
 
