@@ -23,6 +23,13 @@ class Args:
     output: Literal["csv", "json"]
 
 
+class Entry(TypedDict):
+    id: int
+    created_at: str
+    updated_at: str
+    deleted_at: str | None
+
+
 Resource = TypedDict(
     "Resource",
     {
@@ -38,16 +45,11 @@ Resource = TypedDict(
 )
 
 
-class Song(TypedDict):
-    id: int
+class Song(Entry):
     title: str
-    created_at: str
-    updated_at: str
-    deleted_at: str | None
 
 
-class Video(TypedDict):
-    id: int
+class Video(Entry):
     basename: str
     filename: str
     path: str
@@ -62,47 +64,32 @@ class Video(TypedDict):
     overlap: Literal["None", "Transition", "Over"]
     tags: str
     link: str
-    created_at: str
-    updated_at: str
-    deleted_at: str | None
 
 
-class AnimeThemeEntry(TypedDict):
-    id: int
+class AnimeThemeEntry(Entry):
     version: int | None
     episodes: str | None
     nsfw: bool
     spoiler: bool
     notes: str | None
-    created_at: str
-    updated_at: str
-    deleted_at: str | None
     videos: list[Video]
 
 
-class AnimeTheme(TypedDict):
-    id: int
+class AnimeTheme(Entry):
     type: Literal["OP", "ED"] | None
     sequence: int | None
     group: str | None
     slug: str
-    created_at: str
-    updated_at: str
-    deleted_at: str | None
     song: Song | None
     animethemeentries: list[AnimeThemeEntry]
 
 
-class Anime(TypedDict):
-    id: int
+class Anime(Entry):
     name: str
     slug: str
     year: int | None
     season: Literal["Winter", "Spring", "Summer", "Fall"] | None
     synopsis: str | None
-    created_at: str
-    updated_at: str
-    deleted_at: str | None
     animethemes: list[AnimeTheme]
     resources: list[Resource]
 
