@@ -1,5 +1,6 @@
 import argparse
 import csv
+import itertools
 import json
 from dataclasses import dataclass
 from enum import StrEnum, auto
@@ -21,6 +22,7 @@ class Args:
     year: int
     season: Season
     output: Literal["csv", "json"]
+    no_duplicates: bool
 
 
 class Entry(TypedDict):
@@ -114,6 +116,12 @@ def make_parser() -> argparse.ArgumentParser:
         choices=["csv", "json"],
         default="csv",
     )
+    parser.add_argument(
+        "--no-duplicates",
+        "-d",
+        help="Save the first version of each theme",
+        action="store_true",
+    )
     return parser
 
 
@@ -158,6 +166,14 @@ def main() -> None:
         for videos in entries["videos"]
         if "NCBD1080" not in videos["link"]
     ]
+
+    if args.no_duplicates:
+        anime_list = [
+            next(x[1])
+            for x in itertools.groupby(
+                anime_list, key=lambda a: (a["anilist"], a["type"])
+            )
+        ]
 
     with open(
         f"animethemes_{args.year}_{args.season}.{args.output}",
