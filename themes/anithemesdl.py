@@ -3,7 +3,7 @@ import csv
 import json
 from dataclasses import dataclass
 from enum import StrEnum, auto
-from typing import Literal
+from typing import Literal, TypedDict
 
 import requests
 
@@ -21,6 +21,90 @@ class Args:
     year: int
     season: Season
     output: Literal["csv", "json"]
+
+
+Resource = TypedDict(
+    "Resource",
+    {
+        "id": int,
+        "link": str | None,
+        "external_id": int | None,
+        "site": str | None,
+        "as": str | None,
+        "created_at": str,
+        "updated_at": str,
+        "deleted_at": str | None,
+    },
+)
+
+
+class Song(TypedDict):
+    id: int
+    title: str
+    created_at: str
+    updated_at: str
+    deleted_at: str | None
+
+
+class Video(TypedDict):
+    id: int
+    basename: str
+    filename: str
+    path: str
+    size: int
+    mimetype: str
+    resolution: int | None
+    nc: bool
+    subbed: bool
+    lyrics: bool
+    uncen: bool
+    source: Literal["WEB", "RAW", "BD", "DVD", "VHS", "LD"] | None
+    overlap: Literal["None", "Transition", "Over"]
+    tags: str
+    link: str
+    created_at: str
+    updated_at: str
+    deleted_at: str | None
+
+
+class AnimeThemeEntry(TypedDict):
+    id: int
+    version: int | None
+    episodes: str | None
+    nsfw: bool
+    spoiler: bool
+    notes: str | None
+    created_at: str
+    updated_at: str
+    deleted_at: str | None
+    videos: list[Video]
+
+
+class AnimeTheme(TypedDict):
+    id: int
+    type: Literal["OP", "ED"] | None
+    sequence: int | None
+    group: str | None
+    slug: str
+    created_at: str
+    updated_at: str
+    deleted_at: str | None
+    song: Song
+    animethemeentries: list[AnimeThemeEntry]
+
+
+class Anime(TypedDict):
+    id: int
+    name: str
+    slug: str
+    year: int | None
+    season: Literal["Winter", "Spring", "Summer", "Fall"] | None
+    synopsis: str | None
+    created_at: str
+    updated_at: str
+    deleted_at: str | None
+    animethemes: list[AnimeTheme]
+    resources: list[Resource]
 
 
 def make_parser() -> argparse.ArgumentParser:
@@ -46,15 +130,15 @@ def make_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main():
-    args = make_parser().parse_args(namespace=Args)
-
-    results = []
-    for page in range(1, 10):  # Could use a while loop here, but range is safer
+def fetch_themes(
+    year: int, season: Season, site: str = "AniList", num_pages: int = 10
+) -> list[Anime]:
+    results: list[Anime] = []
+    for page in range(1, num_pages + 1):
         params = {
-            "filter[year]": args.year,
-            "filter[season]": None if args.season == Season.ALL else args.season,
-            "filter[site]": "AniList",
+            "filter[year]": year,
+            "filter[season]": None if season == Season.ALL else season,
+            "filter[site]": site,
             "include": "animethemes.animethemeentries.videos,animethemes.song,resources",
             "page[size]": 100,
             "page[number]": page,
@@ -64,6 +148,14 @@ def main():
         if not result:
             break
         results.extend(result)
+
+    return results
+
+
+def main():
+    args = make_parser().parse_args(namespace=Args)
+    results = fetch_themes(args.year, args.season)
+
     anime_list: list[dict] = []
     for anime in results:
         name, season = anime["name"], anime["season"]
@@ -71,7 +163,7 @@ def main():
         for themes in anime["animethemes"]:
             oped = themes["type"]
             sequence = themes["sequence"]
-            songname = themes["song"].get("title") if themes["song"] else None
+            song_name = themes["song"].get("title") if themes["song"] else None
             for entries in themes["animethemeentries"]:
                 version, episodes = entries["version"], entries["episodes"]
                 for videos in entries["videos"]:
@@ -83,7 +175,7 @@ def main():
                         anime_list.append(
                             {
                                 "name": name,
-                                "songname": songname,
+                                "songname": song_name,
                                 "anilist": anilist,
                                 "type": str(oped) + ver,
                                 # "season": season,
